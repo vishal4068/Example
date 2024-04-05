@@ -6,6 +6,9 @@ def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
     hyperlinks_info = []
 
+    previous_hyperlink_url = None
+    current_hyperlink_text = ""
+
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
         for link in links:
@@ -16,10 +19,24 @@ def extract_hyperlink_text(pdf_path):
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
-                        if abs(word_rect.y0 - rect.y0) < 10:  # Adjust the threshold as needed
+                        if abs(word_rect.y0 - rect.y0) < 5:  # Adjust the threshold as needed
                             hyperlink_text += w[4] + " "
                 hyperlink_url = link['uri']
-                hyperlinks_info.append((hyperlink_text.strip(), hyperlink_url, page_num))
+                # If the current URL is the same as the previous one, concatenate the text
+                if hyperlink_url == previous_hyperlink_url:
+                    current_hyperlink_text += hyperlink_text.strip() + " "
+                else:
+                    # If the previous URL is not None, it means we finished processing a sequence of the same URL
+                    if previous_hyperlink_url is not None:
+                        hyperlinks_info.append((previous_hyperlink_text.strip(), previous_hyperlink_url, page_num))
+                    # Start a new sequence with the current URL
+                    previous_hyperlink_url = hyperlink_url
+                    previous_hyperlink_text = hyperlink_text
+                    current_hyperlink_text = hyperlink_text
+
+    # Add the last entry after finishing the loop
+    if previous_hyperlink_url is not None:
+        hyperlinks_info.append((previous_hyperlink_text.strip(), previous_hyperlink_url, page_num))
 
     doc.close()
     return hyperlinks_info
@@ -28,22 +45,14 @@ def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
     wb = Workbook()
     ws = wb.active
     ws.title = "Hyperlinks"
-    ws.append(["Page Number", "Hyperlink Text", "Hyperlink URL"])  # Adjusted the header order
+    ws.append(["Hyperlink Text", "Hyperlink URL", "Page Number"])  # Adding the header
 
     for cell in ws[1]:  # Formatting the header row
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal='center')
 
-    for row, info in enumerate(hyperlinks_info, start=2):
-        hyperlink_text, hyperlink_url, page_number = info
-        # Adjust the order here: Page number, Hyperlink text, and then Hyperlink URL
-        ws[f'A{row}'] = page_number
-        ws[f'A{row}'].alignment = Alignment(horizontal='center')  # Center-align the page number
-        ws[f'B{row}'] = hyperlink_text
-        # Create a clickable hyperlink for the URL
-        ws[f'C{row}'].hyperlink = hyperlink_url
-        ws[f'C{row}'].value = hyperlink_url  # You can customize this text
-        ws[f'C{row}'].style = "Hyperlink"  # Optional: Apply the hyperlink style
+    for hyperlink_text, hyperlink_url, page_number in hyperlinks_info:
+        ws.append([hyperlink_text, hyperlink_url, page_number])
 
     wb.save(excel_path)
 
