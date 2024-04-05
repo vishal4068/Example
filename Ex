@@ -11,6 +11,8 @@ def extract_hyperlink_text(pdf_path):
         for link in links:
             if link['kind'] == fitz.LINK_URI:
                 rect = fitz.Rect(link['from'])
+                # Adjust rectangle dimensions to cover a smaller area around the hyperlink
+                rect = rect.inflate(5, 5)  # Increase or decrease the values as needed
                 words = page.get_text("words")
                 link_text = ""
                 for w in words:
