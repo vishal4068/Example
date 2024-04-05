@@ -11,18 +11,15 @@ def extract_hyperlink_text(pdf_path):
         for link in links:
             if link['kind'] == fitz.LINK_URI:
                 rect = fitz.Rect(link['from'])
-                # Adjust rectangle dimensions to cover a smaller area around the hyperlink
-                # Example: reducing the height by 5 units
-                rect.y0 -= 5
-                rect.y1 += 5
                 words = page.get_text("words")
                 link_text = ""
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
-                        link_text += w[4] + " "
-                        if word_rect.contains(rect):
-                            break  # Exit the loop if the word fully contains the hyperlink rectangle
+                        if abs(word_rect.y0 - rect.y0) < 10:  # Adjust the threshold distance as needed
+                            link_text += w[4] + " "
+                            if word_rect.contains(rect):
+                                break  # Exit the loop if the word fully contains the hyperlink rectangle
                 hyperlink_url = link['uri']
                 hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
 
