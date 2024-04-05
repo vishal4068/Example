@@ -6,23 +6,39 @@ def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
     hyperlinks_info = []
 
+    previous_url = None
+    current_hyperlink_text = ""
+
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
         for link in links:
             if link['kind'] == fitz.LINK_URI:
                 rect = fitz.Rect(link['from'])
                 words = page.get_text("words")
-                link_text = ""
+                hyperlink_text = ""
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
-                        # Adjusting to prevent extracting text below the hyperlink
-                        if word_rect.y1 < rect.y1:
-                            link_text += w[4] + " "
+                        # Adjusting to prevent extracting text outside the range of the hyperlink
+                        if (abs(word_rect.y0 - rect.y0) < 10) and (abs(word_rect.y1 - rect.y1) < 10):
+                            hyperlink_text += w[4] + " "
                             if word_rect.contains(rect):
                                 break  # Exit the loop if the word fully contains the hyperlink rectangle
                 hyperlink_url = link['uri']
-                hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
+                
+                # If the current URL is the same as the previous one, append the text
+                if hyperlink_url == previous_url:
+                    current_hyperlink_text += hyperlink_text.strip() + " "
+                else:
+                    # If the current URL is different, add the previous entry to the list and start a new one
+                    if previous_url is not None:
+                        hyperlinks_info.append((current_hyperlink_text.strip(), previous_url, page_num))
+                    current_hyperlink_text = hyperlink_text.strip() + " "
+                    previous_url = hyperlink_url
+
+    # Add the last entry after finishing the loop
+    if previous_url is not None:
+        hyperlinks_info.append((current_hyperlink_text.strip(), previous_url, page_num))
 
     doc.close()
     return hyperlinks_info
