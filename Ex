@@ -1,6 +1,6 @@
 def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
-    hyperlinks_info = []
+    hyperlinks_info = {}
 
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
@@ -8,19 +8,29 @@ def extract_hyperlink_text(pdf_path):
             if link['kind'] == fitz.LINK_URI:
                 rect = fitz.Rect(link['from'])
                 words = page.get_text("words")
-                link_text = ""
-                text_fragments = []  # Store text fragments for concatenation
+                hyperlink_text = ""
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
                         # Adjusting to prevent extracting text outside the range of the hyperlink
                         if (abs(word_rect.y0 - rect.y0) < 10) and (abs(word_rect.y1 - rect.y1) < 10):
-                            text_fragments.append(w[4])
+                            hyperlink_text += w[4] + " "
                             if word_rect.contains(rect):
-                                link_text += " ".join(text_fragments) + " "  # Concatenate text fragments
-                                text_fragments = []  # Clear text fragments for the next iteration
+                                break  # Exit the loop if the word fully contains the hyperlink rectangle
                 hyperlink_url = link['uri']
-                hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
+                
+                # If the hyperlink URL already exists, append the text to it, otherwise create a new entry
+                if hyperlink_url in hyperlinks_info:
+                    hyperlinks_info[hyperlink_url][0] += hyperlink_text.strip() + " "
+                else:
+                    hyperlinks_info[hyperlink_url] = [hyperlink_text.strip(), page_num]
 
     doc.close()
-    return hyperlinks_info
+    
+    # Convert the dictionary to a list of tuples for consistency with the previous implementation
+    hyperlinks_info_list = [(text.strip(), url, page) for url, (text, page) in hyperlinks_info.items()]
+    
+    return hyperlinks_info_list
+
+
+Extracting 118 links correctly
