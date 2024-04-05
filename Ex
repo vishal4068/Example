@@ -1,13 +1,6 @@
-import fitz  # PyMuPDF
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
-
 def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
-    hyperlinks_info = []
-
-    previous_url = None
-    current_hyperlink_text = ""
+    hyperlinks_info = {}
 
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
@@ -26,21 +19,15 @@ def extract_hyperlink_text(pdf_path):
                                 break  # Exit the loop if the word fully contains the hyperlink rectangle
                 hyperlink_url = link['uri']
                 
-                # If the current URL is the same as the previous one, append the text
-                if hyperlink_url == previous_url:
-                    current_hyperlink_text += hyperlink_text.strip() + " "
+                # If the hyperlink URL already exists, append the text to it, otherwise create a new entry
+                if hyperlink_url in hyperlinks_info:
+                    hyperlinks_info[hyperlink_url][0] += hyperlink_text.strip() + " "
                 else:
-                    # If the current URL is different, add the previous entry to the list and start a new one
-                    if previous_url is not None:
-                        hyperlinks_info.append((current_hyperlink_text.strip(), previous_url, page_num))
-                    current_hyperlink_text = hyperlink_text.strip() + " "
-                    previous_url = hyperlink_url
-
-    # Add the last entry after finishing the loop
-    if previous_url is not None:
-        hyperlinks_info.append((current_hyperlink_text.strip(), previous_url, page_num))
+                    hyperlinks_info[hyperlink_url] = [hyperlink_text.strip(), page_num]
 
     doc.close()
-    return hyperlinks_info
-
-# Other functions remain unchanged...
+    
+    # Convert the dictionary to a list of tuples for consistency with the previous implementation
+    hyperlinks_info_list = [(text.strip(), url, page) for url, (text, page) in hyperlinks_info.items()]
+    
+    return hyperlinks_info_list
