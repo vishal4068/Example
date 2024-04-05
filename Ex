@@ -1,0 +1,28 @@
+import fitz  # PyMuPDF
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
+
+def extract_hyperlink_text(pdf_path):
+    doc = fitz.open(pdf_path)
+    hyperlinks_info = []
+
+    for page_num, page in enumerate(doc, start=1):
+        links = page.get_links()
+        for link in links:
+            if link['kind'] == fitz.LINK_URI:
+                rect = fitz.Rect(link['from'])
+                words = page.get_text("words")
+                link_text = ""
+                for w in words:
+                    word_rect = fitz.Rect(w[:4])
+                    if word_rect.intersects(rect):
+                        link_text += w[4] + " "
+                        if word_rect.contains(rect):
+                            break  # Exit the loop if the word fully contains the hyperlink rectangle
+                hyperlink_url = link['uri']
+                hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
+
+    doc.close()
+    return hyperlinks_info
+
+# Other functions remain unchanged...
