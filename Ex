@@ -1,3 +1,54 @@
+# import fitz  # PyMuPDF
+# from openpyxl import Workbook
+# from openpyxl.styles import Font, Alignment
+
+# def extract_hyperlink_text(pdf_path):
+#     doc = fitz.open(pdf_path)
+#     hyperlinks_info = []
+
+#     for page_num, page in enumerate(doc, start=1):
+#         links = page.get_links()
+#         for link in links:
+#             if link['kind'] == fitz.LINK_URI:
+#                 rect = fitz.Rect(link['from'])
+#                 words = page.get_text("words")
+#                 link_text = " ".join([w[4] for w in words if fitz.Rect(w[:4]).intersects(rect)])
+#                 hyperlink_url = link['uri']
+#                 hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
+
+#     doc.close()
+#     return hyperlinks_info
+
+# def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "Hyperlinks"
+#     ws.append(["Hyperlink Text", "Hyperlink URL", "Page Number"])  # Adding the header
+#     ws = wb.active  # Assuming 'wb' is your Workbook instance and 'ws' is the active worksheet
+#     for cell in ws[1]:  # Accessing the first row directly with ws[1]
+#         cell.font = Font(bold=True)
+#         cell.alignment = Alignment(horizontal='center')
+
+#     for row, info in enumerate(hyperlinks_info, start=2):  # Start from row 2 to account for the header
+#         hyperlink_text, hyperlink_url, page_number = info
+#         # Insert the hyperlink text and page number
+#         ws[f'A{row}'] = hyperlink_text
+#         ws[f'C{row}'] = page_number
+#         ws[f'C{row}'].alignment = Alignment(horizontal='center')
+#         # Create a clickable hyperlink for the URL
+#         ws[f'B{row}'].hyperlink = hyperlink_url
+#         ws[f'B{row}'].value = hyperlink_url  # You can customize this text
+#         ws[f'B{row}'].style = "Hyperlink"  # Optional: Apply the hyperlink style
+
+#     wb.save(excel_path)
+
+# # Example usage
+# pdf_path = "vishal.pdf"
+# excel_path = "hyperlink_text.xlsx"
+# hyperlinks_info = extract_hyperlink_text(pdf_path)
+# save_hyperlinks_to_excel(hyperlinks_info, excel_path)
+
+
 import fitz  # PyMuPDF
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
@@ -6,69 +57,62 @@ def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
     hyperlinks_info = []
 
-    previous_hyperlink_url = None
-    current_hyperlink_text = ""
-
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
         for link in links:
             if link['kind'] == fitz.LINK_URI:
-                rect = fitz.Rect(link['from'])
+                original_rect = fitz.Rect(link['from'])
+                adjusted_rect = fitz.Rect(original_rect.x0, original_rect.y0 + 2, original_rect.x1, original_rect.y1 - 2)
+                
                 words = page.get_text("words")
-                hyperlink_text = ""
-                for w in words:
-                    word_rect = fitz.Rect(w[:4])
-                    if word_rect.intersects(rect):
-                        if abs(word_rect.y0 - rect.y0) < 5:  # Adjust the threshold as needed
-                            hyperlink_text += w[4] + " "
+                link_words = [w for w in words if fitz.Rect(w[:4]).intersects(adjusted_rect)]
+                
+                link_text = " ".join([w[4] for w in link_words])
                 hyperlink_url = link['uri']
-                # If the current URL is the same as the previous one, concatenate the text
-                if hyperlink_url == previous_hyperlink_url:
-                    current_hyperlink_text += hyperlink_text.strip() + " "
-                else:
-                    # If the previous URL is not None, it means we finished processing a sequence of the same URL
-                    if previous_hyperlink_url is not None:
-                        hyperlinks_info.append((previous_hyperlink_text.strip(), previous_hyperlink_url, page_num))
-                    # Start a new sequence with the current URL
-                    previous_hyperlink_url = hyperlink_url
-                    previous_hyperlink_text = hyperlink_text
-
-    # Add the last entry after finishing the loop
-    if previous_hyperlink_url is not None:
-        hyperlinks_info.append((previous_hyperlink_text.strip(), previous_hyperlink_url, page_num))
+                hyperlinks_info.append((link_text.strip(), hyperlink_url, page_num))
 
     doc.close()
-    return hyperlinks_info
 
-def merge_adjacent_hyperlinks(hyperlinks_info):
+    # New step: Merge adjacent links with the same URL
     merged_hyperlinks_info = []
-    previous_hyperlink_url = None
-    merged_hyperlink_text = ""
-    for hyperlink_text, hyperlink_url, page_num in hyperlinks_info:
-        if hyperlink_url == previous_hyperlink_url:
-            merged_hyperlink_text += hyperlink_text + " "
+    previous_url = ""
+    combined_text = ""
+    for link_text, hyperlink_url, page_num in hyperlinks_info:
+        if hyperlink_url == previous_url:
+            # Combine text for adjacent links with the same URL
+            combined_text += " " + link_text
         else:
-            if previous_hyperlink_url is not None:
-                merged_hyperlinks_info.append((merged_hyperlink_text.strip(), previous_hyperlink_url, page_num))
-            merged_hyperlink_text = hyperlink_text
-            previous_hyperlink_url = hyperlink_url
-    # Add the last merged hyperlink
-    if previous_hyperlink_url is not None:
-        merged_hyperlinks_info.append((merged_hyperlink_text.strip(), previous_hyperlink_url, page_num))
+            if previous_url:
+                # Save the previous link if it's not the first iteration
+                merged_hyperlinks_info.append((combined_text.strip(), previous_url, page_num))
+            combined_text = link_text
+        previous_url = hyperlink_url
+    # Don't forget to add the last link
+    if combined_text:
+        merged_hyperlinks_info.append((combined_text.strip(), previous_url, page_num))
+
     return merged_hyperlinks_info
 
 def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
     wb = Workbook()
     ws = wb.active
     ws.title = "Hyperlinks"
-    ws.append(["Hyperlink Text", "Hyperlink URL", "Page Number"])  # Adding the header
+    ws.append(["Page Number", "Hyperlink Text", "Hyperlink URL"])  # Adjusted the header order
 
     for cell in ws[1]:  # Formatting the header row
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal='center')
 
-    for hyperlink_text, hyperlink_url, page_number in hyperlinks_info:
-        ws.append([hyperlink_text, hyperlink_url, page_number])
+    for row, info in enumerate(hyperlinks_info, start=2):
+        hyperlink_text, hyperlink_url, page_number = info
+        # Adjust the order here: Page number, Hyperlink text, and then Hyperlink URL
+        ws[f'A{row}'] = page_number
+        ws[f'A{row}'].alignment = Alignment(horizontal='center')  # Center-align the page number
+        ws[f'B{row}'] = hyperlink_text
+        # Create a clickable hyperlink for the URL
+        ws[f'C{row}'].hyperlink = hyperlink_url
+        ws[f'C{row}'].value = hyperlink_url  # You can customize this text
+        ws[f'C{row}'].style = "Hyperlink"  # Optional: Apply the hyperlink style
 
     wb.save(excel_path)
 
@@ -76,5 +120,4 @@ def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
 pdf_path = "vishal.pdf"
 excel_path = "hyperlink_text.xlsx"
 hyperlinks_info = extract_hyperlink_text(pdf_path)
-merged_hyperlinks_info = merge_adjacent_hyperlinks(hyperlinks_info)
-save_hyperlinks_to_excel(merged_hyperlinks_info, excel_path)
+save_hyperlinks_to_excel(hyperlinks_info, excel_path)
