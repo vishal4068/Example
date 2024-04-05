@@ -16,7 +16,8 @@ def extract_hyperlink_text(pdf_path):
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
-                        if abs(word_rect.y0 - rect.y0) < 10:  # Adjust the threshold distance as needed
+                        # Adjusting to prevent extracting text below the hyperlink
+                        if word_rect.y1 < rect.y1:
                             link_text += w[4] + " "
                             if word_rect.contains(rect):
                                 break  # Exit the loop if the word fully contains the hyperlink rectangle
