@@ -1,6 +1,10 @@
+import fitz  # PyMuPDF
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
+
 def extract_hyperlink_text(pdf_path):
     doc = fitz.open(pdf_path)
-    hyperlinks_info = {}
+    hyperlinks_info = []
 
     for page_num, page in enumerate(doc, start=1):
         links = page.get_links()
@@ -12,25 +16,39 @@ def extract_hyperlink_text(pdf_path):
                 for w in words:
                     word_rect = fitz.Rect(w[:4])
                     if word_rect.intersects(rect):
-                        # Adjusting to prevent extracting text outside the range of the hyperlink
-                        if (abs(word_rect.y0 - rect.y0) < 10) and (abs(word_rect.y1 - rect.y1) < 10):
+                        if abs(word_rect.y0 - rect.y0) < 10:  # Adjust the threshold as needed
                             hyperlink_text += w[4] + " "
-                            if word_rect.contains(rect):
-                                break  # Exit the loop if the word fully contains the hyperlink rectangle
                 hyperlink_url = link['uri']
-                
-                # If the hyperlink URL already exists, append the text to it, otherwise create a new entry
-                if hyperlink_url in hyperlinks_info:
-                    hyperlinks_info[hyperlink_url][0] += hyperlink_text.strip() + " "
-                else:
-                    hyperlinks_info[hyperlink_url] = [hyperlink_text.strip(), page_num]
+                hyperlinks_info.append((hyperlink_text.strip(), hyperlink_url, page_num))
 
     doc.close()
-    
-    # Convert the dictionary to a list of tuples for consistency with the previous implementation
-    hyperlinks_info_list = [(text.strip(), url, page) for url, (text, page) in hyperlinks_info.items()]
-    
-    return hyperlinks_info_list
+    return hyperlinks_info
 
+def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Hyperlinks"
+    ws.append(["Page Number", "Hyperlink Text", "Hyperlink URL"])  # Adjusted the header order
 
-Extracting 118 links correctly
+    for cell in ws[1]:  # Formatting the header row
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+
+    for row, info in enumerate(hyperlinks_info, start=2):
+        hyperlink_text, hyperlink_url, page_number = info
+        # Adjust the order here: Page number, Hyperlink text, and then Hyperlink URL
+        ws[f'A{row}'] = page_number
+        ws[f'A{row}'].alignment = Alignment(horizontal='center')  # Center-align the page number
+        ws[f'B{row}'] = hyperlink_text
+        # Create a clickable hyperlink for the URL
+        ws[f'C{row}'].hyperlink = hyperlink_url
+        ws[f'C{row}'].value = hyperlink_url  # You can customize this text
+        ws[f'C{row}'].style = "Hyperlink"  # Optional: Apply the hyperlink style
+
+    wb.save(excel_path)
+
+# Example usage
+pdf_path = "vishal.pdf"
+excel_path = "hyperlink_text.xlsx"
+hyperlinks_info = extract_hyperlink_text(pdf_path)
+save_hyperlinks_to_excel(hyperlinks_info, excel_path)
