@@ -32,7 +32,6 @@ def extract_hyperlink_text(pdf_path):
                     # Start a new sequence with the current URL
                     previous_hyperlink_url = hyperlink_url
                     previous_hyperlink_text = hyperlink_text
-                    current_hyperlink_text = hyperlink_text
 
     # Add the last entry after finishing the loop
     if previous_hyperlink_url is not None:
@@ -40,6 +39,23 @@ def extract_hyperlink_text(pdf_path):
 
     doc.close()
     return hyperlinks_info
+
+def merge_adjacent_hyperlinks(hyperlinks_info):
+    merged_hyperlinks_info = []
+    previous_hyperlink_url = None
+    merged_hyperlink_text = ""
+    for hyperlink_text, hyperlink_url, page_num in hyperlinks_info:
+        if hyperlink_url == previous_hyperlink_url:
+            merged_hyperlink_text += hyperlink_text + " "
+        else:
+            if previous_hyperlink_url is not None:
+                merged_hyperlinks_info.append((merged_hyperlink_text.strip(), previous_hyperlink_url, page_num))
+            merged_hyperlink_text = hyperlink_text
+            previous_hyperlink_url = hyperlink_url
+    # Add the last merged hyperlink
+    if previous_hyperlink_url is not None:
+        merged_hyperlinks_info.append((merged_hyperlink_text.strip(), previous_hyperlink_url, page_num))
+    return merged_hyperlinks_info
 
 def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
     wb = Workbook()
@@ -60,4 +76,5 @@ def save_hyperlinks_to_excel(hyperlinks_info, excel_path):
 pdf_path = "vishal.pdf"
 excel_path = "hyperlink_text.xlsx"
 hyperlinks_info = extract_hyperlink_text(pdf_path)
-save_hyperlinks_to_excel(hyperlinks_info, excel_path)
+merged_hyperlinks_info = merge_adjacent_hyperlinks(hyperlinks_info)
+save_hyperlinks_to_excel(merged_hyperlinks_info, excel_path)
