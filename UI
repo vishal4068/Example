@@ -8,14 +8,9 @@ def mark_graphics_with_red_rectangle(pdf_path, output_pdf_path):
             bbox = fitz.Rect(img[-2])
             page.draw_rect(bbox, color=(1, 0, 0), width=2)
         
-        for annot in page.annots():
-            subtype = annot.type[0]
-            if subtype == 3:  # Image annotation
-                bbox = annot.rect
-                page.draw_rect(bbox, color=(1, 0, 0), width=2)
-            elif subtype == 5:  # Path object (vector graphics)
-                bbox = annot.rect
-                page.draw_rect(bbox, color=(1, 0, 0), width=2)
+        for drawing in page.get_drawings():
+            bbox = fitz.Rect(drawing["rect"])
+            page.draw_rect(bbox, color=(1, 0, 0), width=2)
     
     doc.save(output_pdf_path)
     doc.close()
