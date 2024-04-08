@@ -1,27 +1,19 @@
 import fitz
 
-def detect_charts_with_red_border(pdf_path):
+def mark_graphics_with_red_rectangle(pdf_path, output_pdf_path):
     doc = fitz.open(pdf_path)
-    charts_with_red_border = []
-
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        annots = page.annots()
-        for annot in annots:
-            if annot.info.get('color') == (1, 0, 0):  # Red border
+    
+    for page in doc:
+        for img_index, img in enumerate(page.get_images(full=True)):
+            bbox = fitz.Rect(img[-2])
+            page.draw_rect(bbox, color=(1, 0, 0), width=2)
+        
+        for annot in page.annots():
+            subtype = annot.type[0]
+            if subtype == 3 or subtype == 5:  # subtype 3 and 5 are for images and path objects (vector graphics)
                 bbox = annot.rect
-                charts_with_red_border.append((page_num+1, bbox))
-
-    doc.close()
-    return charts_with_red_border
-
-def mark_charts_with_red_border(pdf_path, output_pdf_path, charts_with_red_border):
-    doc = fitz.open(pdf_path)
-
-    for page_num, bbox in charts_with_red_border:
-        page = doc.load_page(page_num - 1)
-        page.draw_rect(bbox, color=(1, 0, 0), width=2)
-
+                page.draw_rect(bbox, color=(1, 0, 0), width=2)
+    
     doc.save(output_pdf_path)
     doc.close()
 
@@ -29,10 +21,7 @@ def mark_charts_with_red_border(pdf_path, output_pdf_path, charts_with_red_borde
 pdf_path = 'vishal.pdf'
 output_pdf_path = 'marked_vishal.pdf'
 
-# Detect charts with red borders
-charts_with_red_border_info = detect_charts_with_red_border(pdf_path)
+# Mark images and vector graphics with red rectangle in the PDF
+mark_graphics_with_red_rectangle(pdf_path, output_pdf_path)
 
-# Mark charts with red borders in the PDF
-mark_charts_with_red_border(pdf_path, output_pdf_path, charts_with_red_border_info)
-
-print("Charts with red borders marked successfully in the output PDF.")
+print("Images and vector graphics marked with red rectangles successfully in the output PDF.")
