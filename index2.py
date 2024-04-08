@@ -24,10 +24,8 @@ def mark_graphics_with_outer_red_rectangle(pdf_path, output_pdf_path):
     
     for page in doc:
         all_rects = []
-        images = page.get_images(full=True)
-        for img_index, img in enumerate(images):
-            xref = img[0]
-            bbox = fitz.Rect(img[-1])
+        for img_index, img in enumerate(page.get_images(full=True)):
+            bbox = fitz.Rect(img[-2])
             all_rects.append(bbox)
         
         for drawing in page.get_drawings():
