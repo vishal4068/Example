@@ -2,26 +2,37 @@ import fitz
 
 def detect_charts_with_red_border(pdf_path):
     doc = fitz.open(pdf_path)
-    
     charts_with_red_border = []
-    
-    for page_number in range(len(doc)):
-        page = doc.load_page(page_number)
-        page_rect = page.rect
-        page_texts = page.get_text("dict")
-        
-        for text in page_texts["blocks"]:
-            for line in text["lines"]:
-                for span in line["spans"]:
-                    color = span["color"]
-                    bbox = span["bbox"]
-                    if color == (1.0, 0.0, 0.0):  # Check if text color is red
-                        charts_with_red_border.append((page_number + 1, bbox))
-    
+
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        annots = page.annots()
+        for annot in annots:
+            if annot.info.get('color') == (1, 0, 0):  # Red border
+                bbox = annot.rect
+                charts_with_red_border.append((page_num+1, bbox))
+
     doc.close()
     return charts_with_red_border
 
-# Example usage
-pdf_path = 'your_pdf_file.pdf'
-charts_with_red_border = detect_charts_with_red_border(pdf_path)
-print("Charts with red border found:", charts_with_red_border)
+def mark_charts_with_red_border(pdf_path, output_pdf_path, charts_with_red_border):
+    doc = fitz.open(pdf_path)
+
+    for page_num, bbox in charts_with_red_border:
+        page = doc.load_page(page_num - 1)
+        page.draw_rect(bbox, color=(1, 0, 0), width=2)
+
+    doc.save(output_pdf_path)
+    doc.close()
+
+# Input PDF path
+pdf_path = 'vishal.pdf'
+output_pdf_path = 'marked_vishal.pdf'
+
+# Detect charts with red borders
+charts_with_red_border_info = detect_charts_with_red_border(pdf_path)
+
+# Mark charts with red borders in the PDF
+mark_charts_with_red_border(pdf_path, output_pdf_path, charts_with_red_border_info)
+
+print("Charts with red borders marked successfully in the output PDF.")
